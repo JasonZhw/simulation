@@ -1,0 +1,100 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="simple_lane_world">
+    <!-- 1. Ambient light and sunlight -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- 2. Black ground -->
+    <model name="ground_black">
+      <static>true</static>
+      <link name="link">
+        <pose>0 0 0 0 0 0</pose>
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 3. Yellow thin line in the middle -->
+    <model name="center_yellow_line">
+      <static>true</static>
+      <link name="link">
+        <pose>0 0 0.01 0 0 0</pose>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>50 0.05 0.02</size> <!-- length 50m，width 0.05m，height 0.02m -->
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>50 0.05 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 0 1</ambient>     <!-- yellow -->
+            <diffuse>1 1 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 4. Left and right white lane lines -->
+    <model name="left_white_line">
+      <static>true</static>
+      <link name="link">
+        <pose>0 1 0.01 0 0 0</pose>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>50 0.1 0.02</size> 
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>   <!-- white -->
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="right_white_line">
+      <static>true</static>
+      <link name="link">
+        <pose>0 -1 0.01 0 0 0</pose>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>50 0.1 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

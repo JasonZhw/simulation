@@ -1,0 +1,279 @@
+<?xml version="1.0"?>
+<!-- File: resource/car.xacro -->
+<!-- Description: Xacro file with 4WD and front steering control for ROS and Gazebo simulation -->
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="car_model">
+
+  <!-- Defining materials for visual elements -->
+  <material name="Gray">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+  <material name="Black">
+    <color rgba="0.0 0.0 0.0 1.0"/>
+  </material>
+  <material name="Yellow">
+    <color rgba="1.0 1.0 0.0 1.0"/>
+  </material>
+  <material name="Blue">
+    <color rgba="0.0 0.5 1.0 1.0"/>
+  </material>
+
+  <!-- Parameters adjusted according to the actual vehicle -->
+  <xacro:property name="wheelbase" value="0.350"/>         <!-- Wheelbase: 350mm -->
+  <xacro:property name="track_width" value="0.290"/>       <!-- track_width: 290mm -->
+  <xacro:property name="chassis_length" value="0.515"/>    <!-- length: 515mm -->
+  <xacro:property name="chassis_width" value="0.310"/>     <!-- width: 310mm -->
+  <xacro:property name="chassis_height" value="0.100"/>    <!-- heigth: 100mm (降低) -->
+  <xacro:property name="chassis_ground_clearance" value="0.040"/> <!-- Ground Clearance: 40mm -->
+  <!-- Vehicle control parameters -->
+  <xacro:property name="max_steering_angle" value="0.5236"/>  <!-- 30 degrees in radians -->
+  <xacro:property name="max_wheel_speed" value="10.0"/>       <!-- Max wheel angular velocity -->
+
+  <!-- Wheel parameter adjustment -->
+  <xacro:property name="wheel_radius" value="0.0485"/>     <!-- Wheel radius: 97mm diameter -->
+  <xacro:property name="wheel_width" value="0.040"/>       <!-- Tire width: 40mm -->
+
+  <!-- Camera parameters (RealSense D435i) -->
+  <xacro:property name="camera_fov" value="69.4"/>        
+  <xacro:property name="camera_width" value="1280"/>      
+  <xacro:property name="camera_height" value="720"/>      
+  <xacro:property name="camera_clip_near" value="0.1"/>   
+  <xacro:property name="camera_clip_far" value="10.0"/>  
+
+  <!-- Definition of chassis -->
+  <link name="chassis">
+    <visual>
+      <geometry>
+        <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+      </geometry>
+      <material name="Gray"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3.65"/> <!-- Body quality: 3.65kg -->
+      <inertia ixx="0.083" iyy="0.083" izz="0.083" ixy="0.0" ixz="0.0" iyz="0.0"/>
+    </inertial>
+  </link>
+
+  <!-- Steering knuckle macro for front wheels -->
+  <xacro:macro name="steering_knuckle" params="prefix x y">
+    <link name="${prefix}_steering_knuckle">
+      <visual>
+        <geometry>
+          <cylinder radius="0.015" length="0.020"/>
+        </geometry>
+        <material name="Gray"/>
+      </visual>
+      <inertial>
+        <mass value="0.1"/>
+        <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0.0" ixz="0.0" iyz="0.0"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}_steering_joint" type="revolute">
+      <parent link="chassis"/>
+      <child link="${prefix}_steering_knuckle"/>
+      <origin xyz="${x} ${y} ${-chassis_height/2 - chassis_ground_clearance}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="-${max_steering_angle}" upper="${max_steering_angle}" effort="10" velocity="1.0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Driving wheel macro for all wheels -->
+  <xacro:macro name="driving_wheel" params="prefix parent_link x y z">
+    <link name="${prefix}_wheel">
+      <visual>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="Black"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="0.3"/> <!-- Wheel quality: 0.3kg -->
+        <inertia ixx="0.0012" iyy="0.0012" izz="0.0012" ixy="0.0" ixz="0.0" iyz="0.0"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="${parent_link}"/>
+      <child link="${prefix}_wheel"/>
+      <origin xyz="${x} ${y} ${z}" rpy="1.5708 0 0"/>
+      <axis xyz="0 0 1"/>
+    </joint>
+  </xacro:macro>
+
+ <!-- Create front steering knuckles -->
+  <xacro:steering_knuckle prefix="fl" x="${wheelbase/2}" y="${track_width/2}"/>
+  <xacro:steering_knuckle prefix="fr" x="${wheelbase/2}" y="-${track_width/2}"/>
+
+  <!-- Create front wheels (steered) -->
+  <xacro:driving_wheel prefix="fl" parent_link="fl_steering_knuckle" x="0" y="0" z="0"/>
+  <xacro:driving_wheel prefix="fr" parent_link="fr_steering_knuckle" x="0" y="0" z="0"/>
+
+  <!-- Create rear wheels (fixed) -->
+  <xacro:driving_wheel prefix="rl" parent_link="chassis" x="-${wheelbase/2}" y="${track_width/2}" z="${-chassis_height/2 - chassis_ground_clearance}"/>
+  <xacro:driving_wheel prefix="rr" parent_link="chassis" x="-${wheelbase/2}" y="-${track_width/2}" z="${-chassis_height/2 - chassis_ground_clearance}"/>
+
+
+  <!-- Camera bracket link -->
+  <link name="camera_mount">
+    <visual>
+      <geometry>
+        <box size="0.020 0.080 0.060"/> <!-- Camera bracket -->
+      </geometry>
+      <material name="Yellow"/>
+    </visual>
+  </link>
+  <joint name="camera_mount_joint" type="fixed">
+    <parent link="chassis"/>
+    <child link="camera_mount"/>
+    <!-- Camera bracket position: center of the front end of the vehicle -->
+    <origin xyz="${chassis_length/2 - 0.050} 0 ${chassis_height/2 + 0.030}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Camera Link -->
+  <link name="camera_link">
+    <visual>
+      <geometry>
+        <box size="0.090 0.025 0.025"/> <!-- RealSense D435i size -->
+      </geometry>
+      <material name="Blue"/>
+    </visual>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="camera_mount"/>
+    <child link="camera_link"/>
+    <!-- Camera position: mounted on a bracket -->
+    <origin xyz="0.055 0 0.040" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Gazebo Camera Sensor Configuration -->
+  <gazebo reference="camera_link">
+    <sensor name="front_camera" type="camera">
+      <always_on>true</always_on>
+      <update_rate>30.0</update_rate>
+      <camera>
+        <horizontal_fov>${camera_fov * 3.14159 / 180}</horizontal_fov>
+        <image>
+          <width>${camera_width}</width>
+          <height>${camera_height}</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>${camera_clip_near}</near>
+          <far>${camera_clip_far}</far>
+        </clip>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <ros>
+          <namespace>/</namespace>
+          <remapping>image_raw:=/camera/image_raw</remapping>
+          <remapping>camera_info:=/camera/camera_info</remapping>
+        </ros>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- IMU sensor configuration -->
+  <gazebo reference="chassis">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>true</always_on>
+      <update_rate>200.0</update_rate>
+      <imu>
+        <topic>/imu/data_raw</topic>
+      </imu>
+      <plugin name="imu_controller" filename="libgazebo_ros_imu.so">
+        <ros>
+          <namespace>/</namespace>
+          <remapping>imu/data_raw:=/imu/data_raw</remapping>
+        </ros>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- 4WD Vehicle Control Plugin -->
+  <gazebo>
+    <plugin name="4wd_control" filename="libgazebo_ros_joint_state_publisher.so">
+      <ros>
+        <namespace>/</namespace>
+        <remapping>joint_states:=/joint_states</remapping>
+      </ros>
+      <update_rate>50.0</update_rate>
+      <joint_name>fl_wheel_joint</joint_name>
+      <joint_name>fr_wheel_joint</joint_name>
+      <joint_name>rl_wheel_joint</joint_name>
+      <joint_name>rr_wheel_joint</joint_name>
+      <joint_name>fl_steering_joint</joint_name>
+      <joint_name>fr_steering_joint</joint_name>
+    </plugin>
+  </gazebo>
+
+ <!-- Simple Vehicle Model Control Plugin -->
+  <gazebo>
+    <plugin name="vehicle_controller" filename="libgazebo_ros_planar_move.so">
+      <ros>
+        <namespace>/</namespace>
+        <remapping>cmd_vel:=/cmd_vel</remapping>
+        <remapping>odom:=/odom</remapping>
+      </ros>
+      <update_rate>100.0</update_rate>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>chassis</robot_base_frame>
+      <publish_wheel_tf>true</publish_wheel_tf>
+    </plugin>
+  </gazebo>
+
+ <!-- Wheel Joint Position Controllers -->
+  <gazebo>
+    <plugin name="joint_state_controller" filename="libgazebo_ros_joint_pose_trajectory.so">
+      <ros>
+        <namespace>/</namespace>
+      </ros>
+      <update_rate>50.0</update_rate>
+    </plugin>
+  </gazebo>
+
+  <!-- Body material settings -->
+  <gazebo reference="chassis">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+  <!-- Wheel material and friction settings -->
+  <gazebo reference="fl_wheel">
+    <material>Gazebo/Black</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+  <gazebo reference="fr_wheel">
+    <material>Gazebo/Black</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+  <gazebo reference="rl_wheel">
+    <material>Gazebo/Black</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+  <gazebo reference="rr_wheel">
+    <material>Gazebo/Black</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+
+  <!-- Steering knuckle materials -->
+  <gazebo reference="fl_steering_knuckle">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+  <gazebo reference="fr_steering_knuckle">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+
+</robot>
